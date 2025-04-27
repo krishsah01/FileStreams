@@ -1,61 +1,104 @@
 package filestreams;
 
 import java.io.*;
+import java.util.Objects;
+
 
 public class Product implements Serializable {
+
+    @Serial
     private static final long serialVersionUID = 1L;
 
-    // ------------- fixed-length field sizes (chars) -------------
     public static final int NAME_LEN = 35;
     public static final int DESC_LEN = 75;
     public static final int ID_LEN   = 6;
 
-    // one Java char = 2 bytes, so:
     public static final int RECORD_BYTES =
-            2 * (NAME_LEN + DESC_LEN + ID_LEN) + Double.BYTES; // 232 bytes
+            2 * (NAME_LEN + DESC_LEN + ID_LEN) + Double.BYTES;
 
-    private String name, description, id;
-    private double cost;
+    private String ID;
+    private String Name;
+    private String Description;
+    private Double Cost;
 
-    // ---------- ctor ----------
-    public Product(String name, String description, String id, double cost) {
-        this.name        = fix(name, NAME_LEN);
-        this.description = fix(description, DESC_LEN);
-        this.id          = fix(id, ID_LEN);
-        this.cost        = cost;
+    public Product(String ID, String Name, String Description, Double Cost) {
+        this.ID          = fix(ID,   ID_LEN);
+        this.Name        = fix(Name, NAME_LEN);
+        this.Description = fix(Description, DESC_LEN);
+        this.Cost        = Cost;
     }
 
-    // ---------- random-access helpers ----------
     public void write(RandomAccessFile raf) throws IOException {
-        writeFixed(raf, name, NAME_LEN);
-        writeFixed(raf, description, DESC_LEN);
-        writeFixed(raf, id, ID_LEN);
-        raf.writeDouble(cost);
+        writeFixed(raf, ID,          ID_LEN);
+        writeFixed(raf, Name,        NAME_LEN);
+        writeFixed(raf, Description, DESC_LEN);
+        raf.writeDouble(Cost);
     }
 
     public static Product read(RandomAccessFile raf) throws IOException {
-        String n   = readFixed(raf, NAME_LEN);
-        String d   = readFixed(raf, DESC_LEN);
-        String iid = readFixed(raf, ID_LEN);
-        double c   = raf.readDouble();
-        return new Product(n, d, iid, c);
+        String id   = readFixed(raf, ID_LEN);
+        String name = readFixed(raf, NAME_LEN);
+        String desc = readFixed(raf, DESC_LEN);
+        double cost = raf.readDouble();
+        return new Product(id, name, desc, cost);
     }
 
     public boolean matches(String partial) {
-        return name.trim().toLowerCase()
+        return Name.trim().toLowerCase()
                 .contains(partial.toLowerCase().trim());
+    }
+
+    public String getID()          { return ID.trim(); }
+    public String getName()        { return Name.trim(); }
+    public String getDescription() { return Description.trim(); }
+    public Double getCost()        { return Cost; }
+
+    public void setName(String n)        { Name = fix(n, NAME_LEN); }
+    public void setDescription(String d) { Description = fix(d, DESC_LEN); }
+    public void setCost(Double c)        { Cost = c; }
+
+    public String toCSV() {
+        return "%s, %s, %s, %.2f"
+                .formatted(getID(), getName(), getDescription(), Cost);
+    }
+    public String toJSON() {
+        return """
+               {
+                 "ID": "%s",
+                 "Name": "%s",
+                 "Description": "%s",
+                 "Cost": %.2f
+               }""".formatted(getID(), getName(), getDescription(), Cost);
+    }
+    public String toXML() {
+        return """
+               <Product>
+                 <ID>%s</ID>
+                 <Name>%s</Name>
+                 <Description>%s</Description>
+                 <Cost>%.2f</Cost>
+               </Product>""".formatted(getID(), getName(), getDescription(), Cost);
     }
 
     @Override public String toString() {
         return "%-35s  $%7.2f  %-6s  %s"
-                .formatted(name.trim(), cost, id.trim(), description.trim());
+                .formatted(getName(), Cost, getID(), getDescription());
+    }
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Product p)) return false;
+        return Objects.equals(getID(), p.getID()) &&
+                Objects.equals(getName(), p.getName()) &&
+                Objects.equals(getDescription(), p.getDescription()) &&
+                Objects.equals(Cost, p.Cost);
+    }
+    @Override public int hashCode() {
+        return Objects.hash(getID(), getName(), getDescription(), Cost);
     }
 
-    // ---------- utility ----------
     private static String fix(String s, int len) {
-        return (s == null ? "" : s).trim()
-                .substring(0, Math.min(len, s.length()))
-                + " ".repeat(Math.max(0, len - s.trim().length()));
+        s = (s == null ? "" : s).trim();
+        return (s.length() > len ? s.substring(0, len) : s + " ".repeat(len - s.length()));
     }
     private static void writeFixed(RandomAccessFile raf,
                                    String s, int len) throws IOException {
